@@ -1,0 +1,36 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id                   String   @id @default(uuid())
+  email                String   @unique
+  password             String?  // Nullable for Google OAuth users
+  display_name         String
+  role                 String   @default("user") // "user" | "admin"
+  virtual_cash_balance Decimal  @default(100000.00)
+  is_active            Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @default(now()) @updatedAt
+
+  @@map("users")
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  user_id       String
+  type          String   // "TRADE_BUY" | "TRADE_SELL" | "BROKERAGE" | "ADJUSTMENT" | "INITIAL_CREDIT"
+  amount        Decimal
+  balance_after Decimal
+  reference_id  String?
+  created_at    DateTime @default(now())
+
+  @@map("transactions")
+}
