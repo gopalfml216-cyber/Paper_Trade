@@ -10,15 +10,22 @@ datasource db {
 }
 
 model User {
-  id                   String   @id @default(uuid())
-  email                String   @unique
-  password             String?  // Nullable for Google OAuth users
+  id                   String        @id @default(uuid())
+  email                String        @unique
+  password             String?       // Nullable for Google OAuth users
   display_name         String
-  role                 String   @default("user") // "user" | "admin"
-  virtual_cash_balance Decimal  @default(100000.00)
-  is_active            Boolean  @default(true)
-  created_at           DateTime @default(now())
-  updated_at           DateTime @default(now()) @updatedAt
+  role                 String        @default("user") // "user" | "admin"
+  virtual_cash_balance Decimal       @default(100000.00)
+  is_active            Boolean       @default(true)
+  created_at           DateTime      @default(now())
+  updated_at           DateTime      @default(now()) @updatedAt
+  orders               Order[]
+  trades               Trade[]
+  holdings             Holding[]
+  watchlist            Watchlist[]
+  notifications        Notification[]
+  achievements         Achievement[]
+  leaderboard_snapshots LeaderboardSnapshot[]
 
   @@map("users")
 }
@@ -33,4 +40,150 @@ model Transaction {
   created_at    DateTime @default(now())
 
   @@map("transactions")
+}
+
+model StockMaster {
+  symbol       String            @id
+  company_name String
+  exchange     String            @default("NSE")
+  sector       String?
+  isin         String?
+  lot_size     Int               @default(1)
+  is_active    Boolean           @default(true)
+  created_at   DateTime          @default(now())
+  price_cache  PriceCache?
+  orders       Order[]
+  trades       Trade[]
+  holdings     Holding[]
+  watchlist    Watchlist[]
+  historical_prices HistoricalPrice[]
+
+  @@map("stock_master")
+}
+
+model HistoricalPrice {
+  id          Int         @id @default(autoincrement())
+  symbol      String
+  stock       StockMaster @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+  date        DateTime
+  open        Decimal
+  high        Decimal
+  low         Decimal
+  close       Decimal
+  volume      BigInt?
+
+  @@unique([symbol, date])
+  @@map("historical_prices")
+}
+
+model PriceCache {
+  symbol         String      @id
+  stock          StockMaster @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+  last_price     Decimal
+  day_change     Decimal?
+  day_change_pct Decimal?
+  day_open       Decimal?
+  day_high       Decimal?
+  day_low        Decimal?
+  prev_close     Decimal?
+  updated_at     DateTime    @default(now()) @updatedAt
+
+  @@map("price_cache")
+}
+
+model Order {
+  id               String      @id @default(uuid())
+  user_id          String
+  user             User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  symbol           String
+  stock            StockMaster @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+  side             String      // "BUY" | "SELL"
+  order_type       String      // "MARKET" | "LIMIT"
+  quantity         Int
+  limit_price      Decimal?
+  status           String      @default("PENDING") // PENDING | EXECUTED | CANCELLED | REJECTED
+  rejection_reason String?
+  created_at       DateTime    @default(now())
+  updated_at       DateTime    @default(now()) @updatedAt
+  trades           Trade[]
+
+  @@map("orders")
+}
+
+model Trade {
+  id            String      @id @default(uuid())
+  order_id      String
+  order         Order       @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  user_id       String
+  user          User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  symbol        String
+  stock         StockMaster @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+  side          String      // "BUY" | "SELL"
+  quantity      Int
+  price         Decimal
+  brokerage_fee Decimal     @default(0)
+  realized_pnl  Decimal?
+  executed_at   DateTime    @default(now())
+
+  @@map("trades")
+}
+
+model Holding {
+  id             String      @id @default(uuid())
+  user_id        String
+  user           User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  symbol         String
+  stock          StockMaster @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+  quantity       Int
+  avg_price      Decimal
+  invested_value Decimal
+  updated_at     DateTime    @default(now()) @updatedAt
+
+  @@unique([user_id, symbol])
+  @@map("holdings")
+}
+
+model Watchlist {
+  id         String      @id @default(uuid())
+  user_id    String
+  user       User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  symbol     String
+  stock      StockMaster @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+  added_at   DateTime    @default(now())
+
+  @@unique([user_id, symbol])
+  @@map("watchlist")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  type       String   // "ORDER_EXECUTED" | "LIMIT_TRIGGER" | "ACHIEVEMENT" | "SYSTEM"
+  message    String
+  read       Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model Achievement {
+  id               String   @id @default(uuid())
+  user_id          String
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  achievement_type String   // "FIRST_TRADE" | "FIRST_PROFIT" | "TEN_TRADES"
+  earned_at        DateTime @default(now())
+
+  @@map("achievements")
+}
+
+model LeaderboardSnapshot {
+  id            String   @id @default(uuid())
+  user_id       String
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  return_pct    Decimal
+  rank          Int
+  snapshot_date DateTime @default(now())
+
+  @@map("leaderboard_snapshots")
 }

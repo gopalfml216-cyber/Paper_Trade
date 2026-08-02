@@ -16,7 +16,20 @@ export async function getServerUser(cookieHeader?: string): Promise<UserProfile 
     const rawCookie = parseCookie(cookieHeader, MOCK_COOKIE_NAME);
     if (!rawCookie) return null;
     try {
-      return JSON.parse(rawCookie) as UserProfile;
+      const parsed = JSON.parse(rawCookie) as UserProfile;
+      const dbUser = await prisma.user.findUnique({
+        where: { id: parsed.id }
+      });
+      if (!dbUser) return null;
+      return {
+        id: dbUser.id,
+        email: dbUser.email,
+        display_name: dbUser.display_name,
+        role: dbUser.role,
+        virtual_cash_balance: Number(dbUser.virtual_cash_balance),
+        is_active: dbUser.is_active,
+        created_at: dbUser.created_at.toISOString(),
+      };
     } catch {
       return null;
     }
